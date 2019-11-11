@@ -1,5 +1,9 @@
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using BattleTech;
+using BattleTech.Save.SaveGameStructure;
 using BattleTech.UI;
 using Harmony;
 using HBS;
@@ -10,40 +14,88 @@ using static AutoLoadGame.Core;
 
 namespace AutoLoadGame
 {
+    public enum Mode
+    {
+        Save,
+        MechBay
+    }
+
     public class Patches
     {
-        private static bool done;
-
         [HarmonyPatch(typeof(MainMenu), "ShowRefreshingSaves")]
         public static class MainMenu_ShowRefreshingSaves_Patch
         {
-            public static bool Prepare()
-            {
-                return !(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
-            }
+            private static bool doneMode;
+            private static bool doneAbort;
+            private static Mode mode;
+            private static string saveFile = @"Mods/AutoLoadGame/operatingMode.txt";
 
-            public static void Postfix(MainMenu __instance)
+            public static bool Prepare()
             {
                 try
                 {
-                    if (done)
+                    if (!doneMode)
+                    {
+                        if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+                        {
+                            if (File.Exists(saveFile))
+                            {
+                                mode = (Mode) Enum.Parse(typeof(Mode), File.ReadAllText(saveFile));
+                                Log("Read mode: " + mode);
+                            }
+
+                            switch (mode)
+                            {
+                                case Mode.Save:
+                                    mode = Mode.MechBay;
+                                    Log("Mode is MechBay");
+                                    break;
+                                case Mode.MechBay:
+                                    mode = Mode.Save;
+                                    Log("Mode is Save");
+                                    break;
+                            }
+
+                            Log("Writing mode: " + mode);
+                            File.WriteAllText(saveFile, mode.ToString());
+                            Log("Read back: " + (Mode) Enum.Parse(typeof(Mode), File.ReadAllText(saveFile)));
+                            doneMode = true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log(ex);
+                }
+
+                return !(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+            }
+
+
+            public static void Postfix(MainMenu __instance, SaveGameStructure ____saveStructure)
+            {
+                try
+                {
+                    doneAbort = false;
+                    if (doneAbort)
                     {
                         return;
                     }
 
-                    done = true;
-                    var saveManager = UnityGameInstance.BattleTechGame.SaveManager;
-                    var campaignSaveTime = saveManager.GameInstanceSaves.MostRecentCampaignSave.SaveTime;
-                    var careerSaveTime = saveManager.GameInstanceSaves.MostRecentCareerSave.SaveTime;
-                    if (campaignSaveTime > careerSaveTime)
+                    doneAbort = true;
+
+                    if (mode == Mode.MechBay)
                     {
-                        var saveSlot = LazySingletonBehavior<UnityGameInstance>.Instance.Game.SaveManager.GameInstanceSaves.MostRecentCampaignSave;
-                        Traverse.Create(__instance).Method("BeginResumeSave", saveSlot).GetValue();
+                        LazySingletonBehavior<UIManager>.Instance.GetOrCreateUIModule<SkirmishMechBayPanel>().SetData();
                     }
                     else
                     {
-                        var saveSlot = LazySingletonBehavior<UnityGameInstance>.Instance.Game.SaveManager.GameInstanceSaves.MostRecentCareerSave;
-                        Traverse.Create(__instance).Method("BeginResumeSave", saveSlot).GetValue();
+                        var saveManager = UnityGameInstance.BattleTechGame.SaveManager;
+                        var campaignSaveTime = saveManager.GameInstanceSaves.MostRecentCampaignSave.SaveTime;
+                        var careerSaveTime = saveManager.GameInstanceSaves.MostRecentCareerSave.SaveTime;
+
+                        var mostRecentSaveSlot = ____saveStructure.GetAllSlots().OrderByDescending(x => x.SaveTime).FirstOrDefault();
+                        Traverse.Create(__instance).Method("BeginResumeSave", mostRecentSaveSlot).GetValue();
                     }
                 }
                 catch (Exception ex)
