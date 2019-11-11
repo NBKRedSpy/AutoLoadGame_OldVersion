@@ -1,12 +1,15 @@
 using System;
+using System.CodeDom;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using BattleTech;
 using BattleTech.Save.SaveGameStructure;
 using BattleTech.UI;
 using Harmony;
 using HBS;
+using Newtonsoft.Json;
 using UnityEngine;
 using static AutoLoadGame.Core;
 
@@ -34,16 +37,16 @@ namespace AutoLoadGame
             {
                 try
                 {
+                    if (File.Exists(saveFile))
+                    {
+                        mode = (Mode) Enum.Parse(typeof(Mode), File.ReadAllText(saveFile));
+                        Log("Read mode: " + mode);
+                    }
+
                     if (!doneMode)
                     {
                         if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
                         {
-                            if (File.Exists(saveFile))
-                            {
-                                mode = (Mode) Enum.Parse(typeof(Mode), File.ReadAllText(saveFile));
-                                Log("Read mode: " + mode);
-                            }
-
                             switch (mode)
                             {
                                 case Mode.Save:
@@ -71,29 +74,28 @@ namespace AutoLoadGame
                 return !(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
             }
 
-
             public static void Postfix(MainMenu __instance, SaveGameStructure ____saveStructure)
             {
                 try
                 {
-                    doneAbort = false;
                     if (doneAbort)
                     {
+                        Log("Aborted loading once, return");
                         return;
                     }
 
                     doneAbort = true;
 
+                    Log("Running mode: " + mode);
                     if (mode == Mode.MechBay)
                     {
+                        Log("Loading MechBay");
                         LazySingletonBehavior<UIManager>.Instance.GetOrCreateUIModule<SkirmishMechBayPanel>().SetData();
                     }
                     else
                     {
+                        Log("Loading Save");
                         var saveManager = UnityGameInstance.BattleTechGame.SaveManager;
-                        var campaignSaveTime = saveManager.GameInstanceSaves.MostRecentCampaignSave.SaveTime;
-                        var careerSaveTime = saveManager.GameInstanceSaves.MostRecentCareerSave.SaveTime;
-
                         var mostRecentSaveSlot = ____saveStructure.GetAllSlots().OrderByDescending(x => x.SaveTime).FirstOrDefault();
                         Traverse.Create(__instance).Method("BeginResumeSave", mostRecentSaveSlot).GetValue();
                     }

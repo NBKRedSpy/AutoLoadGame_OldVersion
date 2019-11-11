@@ -1,7 +1,7 @@
 {
   "Name": "AutoLoadGame",
   "DLL": "AutoLoadGame.dll",
-  "Version": "1.0",
+  "Version": "1.1",
   "Description": "Automatically load your most recent savegame",
   "Author": "gnivler"
 }

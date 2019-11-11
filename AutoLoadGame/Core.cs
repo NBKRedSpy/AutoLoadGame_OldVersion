@@ -1,12 +1,14 @@
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Harmony;
+using Newtonsoft.Json;
 
 // ReSharper disable InconsistentNaming
 
 namespace AutoLoadGame
 {
-    public static class Core
+    public class Core
     {
         internal static HarmonyInstance harmony;
 
