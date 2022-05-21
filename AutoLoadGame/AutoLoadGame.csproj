@@ -54,19 +54,25 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Core.cs" />
+    <Compile Include="Logger.cs" />
     <Compile Include="Patches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="mod.json" />
+    <Content Include="mod.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>xcopy /y "$(TargetPath)" "E:\Games\Steam\steamapps\common\BATTLETECH\Mods\$(ProjectName)\"
-IF NOT ERRORLEVEL 0 ( echo copy failed &amp; exit /b )
+robocopy /xc /xn /xo . "E:\Games\Steam\steamapps\common\BATTLETECH\Mods\$(ProjectName)\\" mod.json
+
 rd /q /s  $(ProjectName)
 robocopy . $(ProjectName) $(ProjectName).dll mod.json
+
 "C:\Program Files\7-Zip\7z.exe" a $(ProjectName).zip $(ProjectName)
+
 </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
